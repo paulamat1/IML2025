@@ -10,7 +10,7 @@ MAX_SEG = 3.0
 
 SEED = 1000
 
-INPUT = "random_new"
+INPUT = "class0_not_allowed"
 RAW_OUTPUT = "raw_data"
 NORM_OUTPUT = "norm_data"
 CLASS_LABEL = "class0" 
