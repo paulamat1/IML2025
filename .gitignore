@@ -1,3 +1,6 @@
+#Personal Folders/Files
+/data_samples/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
