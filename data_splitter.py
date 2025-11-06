@@ -13,11 +13,11 @@ HOP_LENGTH = 256
 
 SEED = 200
 
-INPUT = "class1_allowed"
+INPUT = "class0_not_allowed"
 RAW_OUTPUT = "raw_data"
 NORM_OUTPUT = "norm_data"
-CLASS_LABEL = "class1" 
-CLASS_DIR = "class_1"
+CLASS_LABEL = "class0" 
+CLASS_DIR = "class_0"
 
 def peak_normalize(chunk):
     peak = np.max(np.abs(chunk))
@@ -118,8 +118,8 @@ def assign_speakers(speaker_len):
     rn.shuffle(speakers)
 
     total = sum(speaker_len.values())
-    train_amount = 0.7 * total
-    validation_amount = 0.2 * total
+    train_amount = 0.8 * total
+    validation_amount = 0.14 * total
 
     train_sum = val_sum = 0
 
@@ -157,7 +157,7 @@ def segment_file(file_path, category, recording_name):
     while i < len(waveform_clean):
         chunk = waveform_clean[i:i+max_samples]
         if len(chunk) < max_samples:
-            chunk = pad_chunk(chunk, sample_rate)   
+            return   
         save_chunk(chunk, sample_rate, category, recording_name, count)
         count+=1
         i+=max_samples
@@ -182,23 +182,23 @@ def test_segmentation_ratio(dir, sample_len, assign_something):
         print(valid_time/full_time)
 
 def main():    
-    """speaker_len = sample_len_speaker(INPUT)
+    speaker_len = sample_len_speaker(INPUT)
     speaker_cat = assign_speakers(speaker_len)
-    test_segmentation_ratio(INPUT,sample_len_speaker,assign_speakers)"""
+    test_segmentation_ratio(INPUT,sample_len_speaker,assign_speakers)
 
     for speaker in os.listdir(INPUT):
         speaker_dir = os.path.join(INPUT,speaker)
         
-        file_len = sample_len_per_file(speaker_dir)
+        """file_len = sample_len_per_file(speaker_dir)
         file_cat = assign_files(file_len)
-        test_segmentation_ratio(speaker_dir, sample_len_per_file, assign_files)
+        test_segmentation_ratio(speaker_dir, sample_len_per_file, assign_files)"""
 
         for recording_dir in os.listdir(speaker_dir):
             recording_name = f"{recording_dir}"
             recording_path = os.path.join(speaker_dir, recording_dir)
             for file_name in os.listdir(recording_path):
                 file_path = os.path.join(recording_path, file_name)
-                segment_file(file_path, file_cat[file_name], recording_name)
+                segment_file(file_path, speaker_cat[speaker], recording_name)
 
 if __name__ == "__main__":
     main()
