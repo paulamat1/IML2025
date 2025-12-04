@@ -18,25 +18,26 @@ VALID_PATH = "/kaggle/input/spectrograms-1/spectograms/raw_data/validation_data"
 TEST_PATH = "/kaggle/input/spectrograms-1/spectograms/raw_data/test_data"
     
     
-def train_model(model, inputs, labels, device, criterion, optimizer):
-    model.train()
+def train_model(model, train_loader, device, criterion, optimizer):
     train_loss = 0.0
     train_correct = 0
     train_total = 0
     
-    inputs = inputs.to(device)
-    labels = labels.to(device).long() #converts to int64
-    optimizer.zero_grad()
+    model.train()
+    for inputs, labels in train_loader:
+        inputs = inputs.to(device)
+        labels = labels.to(device).long() #converts to int64
+        optimizer.zero_grad()
 
-    outputs = model(inputs)
-    loss = criterion(outputs, labels)
-    loss.backward()
-    optimizer.step()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
 
-    train_loss += loss.item() * inputs.size(0)
-    values, predictions = outputs.max(1)
-    train_correct += (predictions == labels).sum().item() #.item() converts tensor sum to python int
-    train_total += labels.size(0) 
+        train_loss += loss.item() * inputs.size(0)
+        values, predictions = outputs.max(1)
+        train_correct += (predictions == labels).sum().item() #.item() converts tensor sum to python int
+        train_total += labels.size(0) 
 
     train_loss = train_loss / train_total
     train_acc = train_correct / train_total
@@ -115,6 +116,7 @@ def compute_f1(model, data_loader, device):
 
 
 def main():    
+    model_name = "simple_cnn" 
     #Initialize state saving
     history = {
         "train_loss": [],
@@ -127,10 +129,11 @@ def main():
         "f1_weighted": []
     }
 
-    writer = SummaryWriter(log_dir="tensor_board_states") 
+    tensorboard_dir = os.path.join("tensor_board_states", model_name)
+    writer = SummaryWriter(log_dir=tensorboard_dir)
     best_val_loss = inf
 
-    checkpoint_dir = "checkpoints"
+    checkpoint_dir = os.path.join("checkpoints", model_name)
     os.makedirs(checkpoint_dir, exist_ok=True)
     best_model_path = os.path.join(checkpoint_dir, "best_model.pth")
 
@@ -150,36 +153,33 @@ def main():
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, weight_decay=5e-4) #model.parameters() = all weights
 
     #Train
-    batch_count = 0
     for epoch in range(EPOCHS):
-        for inputs, labels in train_loader:
-            train_loss, train_acc = train_model(model, inputs, labels, device, criterion, optimizer)
+        train_loss, train_acc = train_model(model, train_loader, device, criterion, optimizer)
 
-            batch_count+=1
-            history["train_loss"].append(train_loss)  
-            history["train_acc"].append(train_acc)    
-            writer.add_scalar("train_loss", train_loss, batch_count)  
-            writer.add_scalar("train_acc",  train_acc,  batch_count) 
-    
-            #Validate
-            val_loss, val_acc = validate_model(model, valid_loader, device, criterion)
+        history["train_loss"].append(train_loss)  
+        history["train_acc"].append(train_acc)    
+        writer.add_scalar("train_loss", train_loss, epoch+1)  
+        writer.add_scalar("train_acc",  train_acc,  epoch+1) 
 
-            history["val_loss"].append(val_loss)
-            history["val_acc"].append(val_acc)
-            writer.add_scalar("val_loss", val_loss, batch_count)
-            writer.add_scalar("val_acc",  val_acc,  batch_count)
-    
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                torch.save({
-                    "epoch": epoch,                                 
-                    "model_state": model.state_dict(),              
-                    "optimizer_state": optimizer.state_dict(),     
-                    "val_loss": val_loss, 
-                    "val_acc": val_acc,
-                    "img_shape": (IMG_H, IMG_W),                    
-                    "class_to_label": train_dataset.class_to_label,     
-                }, best_model_path)
+        #Validate
+        val_loss, val_acc = validate_model(model, valid_loader, device, criterion)
+
+        history["val_loss"].append(val_loss)
+        history["val_acc"].append(val_acc)
+        writer.add_scalar("val_loss", val_loss, epoch+1)
+        writer.add_scalar("val_acc",  val_acc,  epoch+1)
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save({
+                "epoch": epoch,                                 
+                "model_state": model.state_dict(),              
+                "optimizer_state": optimizer.state_dict(),     
+                "val_loss": val_loss, 
+                "val_acc": val_acc,
+                "img_shape": (IMG_H, IMG_W),                    
+                "class_to_label": train_dataset.class_to_label,     
+            }, best_model_path)
 
     #Test
     checkpoint = torch.load(best_model_path, map_location=device)
@@ -195,6 +195,7 @@ def main():
     macro_f1, weighted_f1 = compute_f1(model, train_loader, device)
 
     print(f"Macro averaged f1-score: {macro_f1}")
+    print(f"Weighted f1-score", {weighted_f1})
     history["f1_macro"].append(macro_f1)
     history["f1_weighted"].append(weighted_f1)
 
