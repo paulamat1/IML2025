@@ -13,6 +13,12 @@ IMG_W = 300
 BATCH_SIZE = 32
 EPOCHS = 20
 
+AUG_RATIO=1.0
+USE_NOISE=True
+USE_CHOP=True
+USE_FAST=True
+USE_SLOW=True
+
 TRAIN_PATH = "/kaggle/input/spectrograms-1/spectograms/raw_data/train_data"
 VALID_PATH = "/kaggle/input/spectrograms-1/spectograms/raw_data/validation_data"
 TEST_PATH = "/kaggle/input/spectrograms-1/spectograms/raw_data/test_data"
@@ -140,7 +146,7 @@ def main():
     #Data Loading 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    train_dataset = NpySpectrogramDataset(TRAIN_PATH, mel_bins=IMG_H, expected_width=IMG_W,)
+    train_dataset = NpySpectrogramDataset(TRAIN_PATH, mel_bins=IMG_H, expected_width=IMG_W, aug_ratio=AUG_RATIO, use_noise=USE_NOISE, use_fast=USE_FAST, use_slow=USE_SLOW, use_chop=USE_CHOP)
     valid_dataset = NpySpectrogramDataset(VALID_PATH, mel_bins=IMG_H, expected_width=train_dataset.expected_width ,class_to_label=train_dataset.class_to_label)
     test_dataset  = NpySpectrogramDataset(TEST_PATH, mel_bins=IMG_H, expected_width=train_dataset.expected_width ,class_to_label=train_dataset.class_to_label)
 
@@ -150,7 +156,7 @@ def main():
 
     model = SimpleCNN().to(device)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, weight_decay=5e-4) #model.parameters() = all weights
+    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, weight_decay=1e-3) #model.parameters() = all weights
 
     #Train
     for epoch in range(EPOCHS):
