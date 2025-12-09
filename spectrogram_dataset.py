@@ -4,10 +4,9 @@ import torch
 from torch.utils.data import Dataset
 import random
 
-
 class NpySpectrogramDataset(Dataset):
     def __init__(self, root, mel_bins=80, expected_width=None, class_to_label=None,
-        aug_ratio=1.0, use_noise=True, use_chop=True, use_fast=True, use_slow=True):
+        aug_ratio=0.0, use_noise=False, use_chop=False, use_fast=False, use_slow=False):
         random.seed(300)
 
         self.root = root
