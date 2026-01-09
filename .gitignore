@@ -1,5 +1,11 @@
 #Personal Folders/Files
 /data_samples/
+class0_not_allowed/
+class1_allowed/
+data_samples_2/
+data_samples_3/
+random_new/
+spectograms/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
