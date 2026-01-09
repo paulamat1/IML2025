@@ -7,7 +7,6 @@ import random
 class NpySpectrogramDataset(Dataset):
     def __init__(self, root, mel_bins=80, expected_width=None, class_to_label=None,
         aug_ratio=0.0, use_noise=False, use_chop=False, use_fast=False, use_slow=False):
-        random.seed(300)
 
         self.root = root
         self.mel_bins = mel_bins
@@ -28,17 +27,14 @@ class NpySpectrogramDataset(Dataset):
                 for filename in os.listdir(speaker_dir):
                     if filename.endswith(".npy"):
                         full_path = os.path.join(speaker_dir, filename)
-                        if filename.endswith("_noise.npy"):
-                            if use_noise:
-                                aug_samples.append((full_path, label))
-                        elif filename.endswith("_chop.npy"):
-                            if use_chop:
-                                aug_samples.append((full_path, label))
-                        elif filename.endswith("_fast.npy"):
-                            if use_fast:
-                                aug_samples.append((full_path, label))
-                        elif filename.endswith("_slow.npy"):
-                            if use_slow:
+                        name = filename.lower()
+                        is_noise = "_noise_" in name
+                        is_chop  = "_chop_"  in name
+                        is_fast  = "_fast_"  in name
+                        is_slow  = "_slow_"  in name
+                        is_aug = is_noise or is_chop or is_fast or is_slow
+                        if is_aug:
+                            if (is_noise and use_noise) or (is_chop and use_chop) or (is_fast and use_fast) or (is_slow and use_slow):
                                 aug_samples.append((full_path, label))
                         else:
                             original_samples.append((full_path, label))
