@@ -6,7 +6,8 @@ import random
 
 class NpySpectrogramDataset(Dataset):
     def __init__(self, root, mel_bins=80, expected_width=None, class_to_label=None,
-        aug_ratio=0.0, use_noise=False, use_chop=False, use_fast=False, use_slow=False):
+        aug_ratio=0.0, use_noise=False, use_chop=False, use_fast=False, use_slow=False,
+        seed=42):
 
         self.root = root
         self.mel_bins = mel_bins
@@ -16,6 +17,8 @@ class NpySpectrogramDataset(Dataset):
             self.class_to_label = {"class_0": 0, "class_1": 1}
         else:
             self.class_to_label = class_to_label
+
+        rng = random.Random(seed)
 
         original_samples = []
         aug_samples = []
@@ -41,7 +44,7 @@ class NpySpectrogramDataset(Dataset):
 
         if 0.0 <= aug_ratio < 1.0 and len(aug_samples) > 0:
             k = int(round(len(aug_samples) * aug_ratio))
-            aug_samples = random.sample(aug_samples, k)
+            aug_samples = rng.sample(aug_samples, k)
 
         self.samples = original_samples + aug_samples
         self.samples.sort()

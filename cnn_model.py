@@ -1,10 +1,13 @@
+import os
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from sklearn.metrics import f1_score
 from math import inf
-import os
-from model_structure import SimpleCNN
+import random
+import numpy as np
+from model_structure import resnet18
 from spectrogram_dataset import NpySpectrogramDataset
 from tensorboard import SummaryWriter
 
@@ -14,14 +17,34 @@ BATCH_SIZE = 32
 EPOCHS = 20
 
 AUG_RATIO=1.0
-USE_NOISE=True
+USE_NOISE=False
 USE_CHOP=True
 USE_FAST=True
 USE_SLOW=True
 
-TRAIN_PATH = "/kaggle/input/spectrograms-1/spectograms/raw_data/train_data"
-VALID_PATH = "/kaggle/input/spectrograms-1/spectograms/raw_data/validation_data"
-TEST_PATH = "/kaggle/input/spectrograms-1/spectograms/raw_data/test_data"
+TRAIN_PATH = "/kaggle/input/spectrograms-aug/train_data"
+VALID_PATH = "/kaggle/input/spectrograms-aug/validation_data"
+TEST_PATH = "/kaggle/input/spectrograms-aug/test_data"
+
+def seed_everything(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+    random.seed(seed)
+    np.random.seed(seed)
+
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True)
+
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
     
     
 def train_model(model, train_loader, device, criterion, optimizer):
@@ -122,6 +145,9 @@ def compute_f1(model, data_loader, device):
 
 
 def main():    
+    SEED = 42
+    seed_everything(SEED) 
+
     model_name = "simple_cnn" 
     #Initialize state saving
     history = {
@@ -131,8 +157,10 @@ def main():
         "val_acc": [],
         "test_loss": [],
         "test_acc": [],
-        "f1_macro": [],
-        "f1_weighted": []
+        "val_f1_macro": [],
+        "val_f1_weighted": [],
+        "test_f1_macro": [],
+        "test_f1_weighted": [],
     }
 
     tensorboard_dir = os.path.join("tensor_board_states", model_name)
@@ -146,18 +174,24 @@ def main():
     #Data Loading 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    train_dataset = NpySpectrogramDataset(TRAIN_PATH, mel_bins=IMG_H, expected_width=IMG_W, aug_ratio=AUG_RATIO, use_noise=USE_NOISE, use_fast=USE_FAST, use_slow=USE_SLOW, use_chop=USE_CHOP)
+    train_dataset = NpySpectrogramDataset(TRAIN_PATH, mel_bins=IMG_H, expected_width=IMG_W, aug_ratio=AUG_RATIO, use_noise=USE_NOISE, use_chop=USE_CHOP,
+    use_fast=USE_FAST,use_slow=USE_SLOW, seed=SEED)
     valid_dataset = NpySpectrogramDataset(VALID_PATH, mel_bins=IMG_H, expected_width=train_dataset.expected_width ,class_to_label=train_dataset.class_to_label)
     test_dataset  = NpySpectrogramDataset(TEST_PATH, mel_bins=IMG_H, expected_width=train_dataset.expected_width ,class_to_label=train_dataset.class_to_label)
 
-    train_loader = DataLoader(train_dataset, batch_size = BATCH_SIZE, shuffle = True, num_workers = 2, pin_memory = True)
+    g = torch.Generator()
+    g.manual_seed(SEED)
+
+    train_loader = DataLoader(train_dataset, batch_size = BATCH_SIZE, shuffle = True, num_workers = 2, pin_memory = True, worker_init_fn=seed_worker,generator=g,persistent_workers=True)
     valid_loader = DataLoader(valid_dataset, batch_size = BATCH_SIZE, shuffle = False, num_workers = 2, pin_memory = True)
     test_loader = DataLoader(test_dataset, batch_size = BATCH_SIZE, shuffle = False, num_workers = 2, pin_memory = True)
-
-    model = SimpleCNN().to(device)
+    print("Train len:", len(train_dataset))
+    print("Valid len:", len(valid_dataset))
+    print("Test len:", len(test_dataset))
+    model = resnet18(pretrained=True).to(device)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, weight_decay=1e-3) #model.parameters() = all weights
-
+    
     #Train
     for epoch in range(EPOCHS):
         train_loss, train_acc = train_model(model, train_loader, device, criterion, optimizer)
@@ -198,12 +232,18 @@ def main():
     writer.add_scalar("test_loss", test_loss, EPOCHS)
     writer.add_scalar("test_acc",  test_acc,  EPOCHS)
 
-    macro_f1, weighted_f1 = compute_f1(model, train_loader, device)
+    val_macro_f1, val_weighted_f1 = compute_f1(model, valid_loader, device)
+    test_macro_f1, test_weighted_f1 = compute_f1(model, test_loader, device)
 
-    print(f"Macro averaged f1-score: {macro_f1}")
-    print(f"Weighted f1-score", {weighted_f1})
-    history["f1_macro"].append(macro_f1)
-    history["f1_weighted"].append(weighted_f1)
+    print(f"Valid. macro averaged f1-score: {val_macro_f1}")
+    print(f"Valid. weighted f1-score: {val_weighted_f1}")
+    print(f"Test macro averaged f1-score: {test_macro_f1}")
+    print(f"Test weighted f1-score: {test_weighted_f1}")
+    
+    history["val_f1_macro"].append(val_macro_f1)
+    history["val_f1_weighted"].append(val_weighted_f1)
+    history["test_f1_macro"].append(test_macro_f1)
+    history["test_f1_weighted"].append(test_weighted_f1)
 
     history_path = os.path.join(checkpoint_dir, "history.pt")
     torch.save(history, history_path)  
