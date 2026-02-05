@@ -6,6 +6,9 @@ data_samples_2/
 data_samples_3/
 random_new/
 spectograms/
+project_files/
+data_segments/
+data_train_valid_test/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
