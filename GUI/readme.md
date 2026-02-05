@@ -3,4 +3,5 @@ to use the GUI correctly add all of the files from this GUI diretory into one fo
 this GUI uses our best model. the gui window will appear at the bottom of the ui.ipynb as a smaller window view for the web page. you can access it with the shown local url. 
 
 
-to pull the best_model.pth you need to use the 'git lfs pull' since this file is quite large.
+to pull the best_model.pth you need to use the 'git lfs pull' since this file is quite large. you can install it at "https://git-lfs.com/"
+
